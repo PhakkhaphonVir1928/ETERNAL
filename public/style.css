@@ -458,6 +458,17 @@ tbody tr:hover { background: rgba(179,35,26,0.05); }
 /* ---------------- modals ---------------- */
 
 .modal-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 20px;
+}
+
+.modal-backdrop[hidden] {
   display: none;
 }
 
