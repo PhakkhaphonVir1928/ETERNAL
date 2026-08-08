@@ -41,9 +41,38 @@ cp .env.example .env   # แล้วใส่ค่าจริงจาก Aiv
 node -r dotenv/config server.js   # หรือใช้ package "dotenv" / export ตัวแปรเองก่อนรัน
 ```
 
-## 3) Deploy บน Render
+## 3) วิธี push ขึ้น GitHub (แล้ว Render จะ deploy ให้เองอัตโนมัติ)
 
-Push โค้ดชุดนี้ทับของเดิมขึ้น GitHub repo เดิม (branch `main`) Render จะ auto-deploy ให้เอง ไม่ต้องตั้งค่า Environment ใหม่เพราะใช้ตัวแปรเดิม (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL`)
+**สำคัญ:** แค่ดาวน์โหลดไฟล์มาเก็บไว้ในเครื่องเฉยๆ ยังไม่มีผลอะไรกับเว็บที่รันอยู่จริง ต้อง push ไฟล์ขึ้น GitHub repo เดิม (`PhakkhapornVir1928/ETERNAL` branch `main`) ก่อน Render ถึงจะเห็นการเปลี่ยนแปลงแล้ว deploy ให้ใหม่ ไม่งั้นเว็บจะยังเป็นโค้ดเวอร์ชันเก่าอยู่แบบเดิมทุกครั้ง
+
+### วิธีที่ 1 — ใช้คำสั่ง git (ถ้ามี git ลงเครื่องแล้ว และเคย clone repo นี้ไว้)
+
+1. เปิด Terminal / Git Bash แล้ว `cd` เข้าไปในโฟลเดอร์ repo ที่ clone ไว้ (โฟลเดอร์ที่มี `.git` อยู่ข้างใน)
+2. แตกไฟล์ zip ที่ได้ แล้ว**คัดลอกไฟล์ทั้งหมดไปทับ**ไฟล์เดิมในโฟลเดอร์ repo (ทับ `server.js`, `public/`, `README.md`, ฯลฯ)
+3. รันคำสั่งตามลำดับ:
+
+```bash
+git add .
+git commit -m "เพิ่มหน้าเช็คชื่อและจัดการสมาชิกใหม่"
+git push origin main
+```
+
+4. ถ้าเป็นการ push ครั้งแรกจากเครื่องนี้ อาจมีหน้าต่างให้ login GitHub ขึ้นมา ให้ login ให้เรียบร้อยก่อน
+5. เข้าไปดูที่ [dashboard.render.com](https://dashboard.render.com) → service `ETERNAL` → แท็บ **Events** จะเห็นการ deploy รอบใหม่กำลังรันอยู่ รอสัก 1-2 นาทีแล้วรีเฟรชเว็บ
+
+> ถ้ายังไม่เคย clone repo มาลงเครื่องเลย ให้รันคำสั่งนี้ก่อน (เปลี่ยน URL เป็นของ repo ตัวเอง):
+> ```bash
+> git clone https://github.com/PhakkhapornVir1928/ETERNAL.git
+> cd ETERNAL
+> ```
+> แล้วค่อยเอาไฟล์ใหม่ไปทับ แล้วทำตามขั้นตอนข้างบน
+
+### วิธีที่ 2 — อัปโหลดผ่านเว็บ GitHub โดยตรง (ไม่ต้องลง git)
+
+1. เข้า repo ที่ [github.com/PhakkhapornVir1928/ETERNAL](https://github.com/PhakkhapornVir1928/ETERNAL)
+2. เข้าไปทีละโฟลเดอร์/ไฟล์ที่ต้องแก้ (`server.js`, `public/index.html`, `public/app.js`, `public/style.css`, `README.md`, `schema.sql`) กดไอคอนดินสอ (Edit) มุมขวาบนของไฟล์ แล้ววางเนื้อหาใหม่ทับของเดิม จากนั้นกด **Commit changes** ทีละไฟล์
+   - หรือถ้าอยากอัปโหลดทีเดียว: กดปุ่ม **Add file → Upload files** ที่หน้า repo แล้วลากไฟล์ที่แตกจาก zip ไปวาง (มันจะถามว่าจะทับไฟล์เดิมไหม กด **Commit changes** ยืนยันได้เลย)
+3. พอ commit เสร็จ Render จะ auto-deploy ให้เองภายในไม่กี่นาที (เช็คได้ที่แท็บ Events เหมือนวิธีที่ 1)
 
 ## เกี่ยวกับรหัสผ่าน
 
