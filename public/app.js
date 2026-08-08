@@ -98,10 +98,13 @@ function unlockAll() {
   document.querySelectorAll('.gate').forEach((g) => { g.hidden = true; });
   document.getElementById('checkinContent').hidden = false;
   document.getElementById('manageContent').hidden = false;
+  document.getElementById('reportContent').hidden = false;
 
   const checkinDate = document.getElementById('checkinDate');
   if (!checkinDate.value) checkinDate.valueAsDate = new Date();
   loadCheckins();
+
+  initReportDefaults();
 }
 
 // ---------------- หน้า 2: เช็คชื่อ ----------------
@@ -309,6 +312,188 @@ document.getElementById('deleteConfirm').addEventListener('click', async () => {
   } catch (err) {
     alert(err.message);
   }
+});
+
+// ---------------- หน้า 4: รายงาน ----------------
+
+function toISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function mondayOf(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=อาทิตย์..6=เสาร์
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function initReportDefaults() {
+  const startInput = document.getElementById('reportStart');
+  const endInput = document.getElementById('reportEnd');
+  if (startInput.value && endInput.value) return; // ไม่ทับค่าที่ผู้ใช้ตั้งไว้แล้ว
+  const today = new Date();
+  const monday = mondayOf(today);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  startInput.value = toISODate(monday);
+  endInput.value = toISODate(sunday);
+}
+
+document.querySelectorAll('.quick-range').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const startInput = document.getElementById('reportStart');
+    const endInput = document.getElementById('reportEnd');
+    const today = new Date();
+    const range = btn.dataset.range;
+
+    if (range === 'thisWeek') {
+      const monday = mondayOf(today);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      startInput.value = toISODate(monday);
+      endInput.value = toISODate(sunday);
+    } else if (range === 'lastWeek') {
+      const monday = mondayOf(today);
+      monday.setDate(monday.getDate() - 7);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      startInput.value = toISODate(monday);
+      endInput.value = toISODate(sunday);
+    } else if (range === 'thisMonth') {
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      startInput.value = toISODate(first);
+      endInput.value = toISODate(last);
+    } else if (range === 'all') {
+      // ดึงตั้งแต่สมาชิกคนแรกถูกเพิ่ม (ประมาณ 1 ปีย้อนหลังถ้าไม่มีข้อมูล) ถึงวันนี้
+      const oneYearAgo = new Date(today);
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      startInput.value = toISODate(oneYearAgo);
+      endInput.value = toISODate(today);
+    }
+    await loadReport();
+  });
+});
+
+document.getElementById('reportPreview').addEventListener('click', loadReport);
+
+async function loadReport() {
+  const start = document.getElementById('reportStart').value;
+  const end = document.getElementById('reportEnd').value;
+  const status = document.getElementById('reportStatus');
+  const weeksBox = document.getElementById('reportWeeks');
+  const emptyBox = document.getElementById('reportEmpty');
+  const summaryCard = document.getElementById('reportSummaryCard');
+
+  if (!start || !end) {
+    status.textContent = 'กรุณาเลือกช่วงวันที่';
+    return;
+  }
+  if (start > end) {
+    status.textContent = 'วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด';
+    return;
+  }
+
+  status.textContent = 'กำลังโหลดรายงาน...';
+  weeksBox.innerHTML = '';
+  summaryCard.hidden = true;
+  emptyBox.hidden = true;
+
+  try {
+    const res = await fetch(`/api/report?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'โหลดรายงานไม่สำเร็จ');
+
+    status.textContent = '';
+
+    if (data.weeks.length === 0) {
+      emptyBox.hidden = false;
+      return;
+    }
+
+    weeksBox.innerHTML = data.weeks.map(renderWeekBlock).join('');
+    renderSummaryTable(data.summary);
+    summaryCard.hidden = false;
+  } catch (err) {
+    status.textContent = err.message;
+  }
+}
+
+function renderWeekBlock(week) {
+  const dayHeaders = week.days.map((d) => `<th class="center">วัน${escapeHtml(d.dayName)}</th>`).join('');
+  const rows = week.rows.map((r) => {
+    const dayCells = week.days.map((d) => {
+      const v = r.byDate[d.date];
+      return `<td class="center ${v === 1 ? 'cell-yes' : 'cell-no'}">${v}</td>`;
+    }).join('');
+    return `
+      <tr>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.rank)}</td>
+        ${dayCells}
+        <td class="center cell-total">${r.total}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="report-week-block">
+      <h3 class="report-week-title">สัปดาห์ ${escapeHtml(week.weekStart)} ถึง ${escapeHtml(week.weekEnd)}</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>รายชื่อสมาชิก</th>
+              <th>ตำแหน่ง</th>
+              ${dayHeaders}
+              <th class="center">รวม</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderSummaryTable(summary) {
+  const head = document.getElementById('reportSummaryHead');
+  const body = document.getElementById('reportSummaryBody');
+
+  head.innerHTML = `
+    <th>รายชื่อสมาชิก</th>
+    <th>ตำแหน่ง</th>
+    ${summary.weekLabels.map((label) => `<th class="center">${escapeHtml(label)}</th>`).join('')}
+    <th class="center">รวมทั้งหมด</th>
+  `;
+
+  body.innerHTML = summary.rows.map((r) => `
+    <tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.rank)}</td>
+      ${r.perWeek.map((v) => `<td class="center">${v}</td>`).join('')}
+      <td class="center cell-total">${r.grandTotal}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('reportDownload').addEventListener('click', () => {
+  const start = document.getElementById('reportStart').value;
+  const end = document.getElementById('reportEnd').value;
+  const status = document.getElementById('reportStatus');
+  if (!start || !end) {
+    status.textContent = 'กรุณาเลือกช่วงวันที่ก่อนดาวน์โหลด';
+    return;
+  }
+  if (start > end) {
+    status.textContent = 'วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด';
+    return;
+  }
+  window.location.href = `/api/report/export?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
 });
 
 // ---------------- init ----------------

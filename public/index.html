@@ -26,6 +26,7 @@
       <button class="tab active" data-tab="overview" role="tab" aria-selected="true">ภาพรวม</button>
       <button class="tab" data-tab="checkin" role="tab" aria-selected="false">เช็คชื่อ</button>
       <button class="tab" data-tab="manage" role="tab" aria-selected="false">จัดการสมาชิก</button>
+      <button class="tab" data-tab="report" role="tab" aria-selected="false">รายงาน</button>
     </nav>
   </header>
 
@@ -141,6 +142,63 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- ===================== หน้า 4: รายงาน ===================== -->
+    <section id="panel-report" class="panel">
+
+      <div id="gateReport" class="gate">
+        <div class="gate-card">
+          <div class="seal-mark small">印</div>
+          <h2>ตราผ่านสำนัก</h2>
+          <p>ส่วนนี้ใช้ดึงรายงานเช็คชื่อ กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
+          <input class="gatePassword" type="password" placeholder="รหัสผ่าน" autocomplete="off">
+          <button class="gateSubmit btn btn-primary">เข้าสู่ส่วนรายงาน</button>
+          <p class="gateError gate-error" hidden>รหัสผ่านไม่ถูกต้อง ลองอีกครั้ง</p>
+        </div>
+      </div>
+
+      <div id="reportContent" class="manage-content" hidden>
+        <div class="card">
+          <h2 class="card-title">ดึงรายงานเช็คชื่อ</h2>
+          <p class="card-hint">เลือกช่วงวันที่ ระบบจะแยกเป็นรายสัปดาห์ให้อัตโนมัติ (ชื่อ + ตำแหน่ง + วันที่เช็คชื่อ + รวม) เลือกช่วงยาวได้เลยเพื่อดึงข้อมูลรวมหลายสัปดาห์พร้อมกัน</p>
+          <div class="form-row">
+            <label>จากวันที่
+              <input id="reportStart" type="date">
+            </label>
+            <label>ถึงวันที่
+              <input id="reportEnd" type="date">
+            </label>
+          </div>
+          <div class="quick-range-row">
+            <button class="btn btn-ghost quick-range" data-range="thisWeek">สัปดาห์นี้</button>
+            <button class="btn btn-ghost quick-range" data-range="lastWeek">สัปดาห์ที่แล้ว</button>
+            <button class="btn btn-ghost quick-range" data-range="thisMonth">เดือนนี้</button>
+            <button class="btn btn-ghost quick-range" data-range="all">รวมทั้งหมด</button>
+          </div>
+          <div class="report-actions">
+            <button id="reportPreview" class="btn btn-primary">ดูรายงาน</button>
+            <button id="reportDownload" class="btn btn-ghost">ดาวน์โหลด Excel (.xlsx)</button>
+          </div>
+          <span id="reportStatus" class="inline-status"></span>
+        </div>
+
+        <div id="reportEmpty" class="empty-state" hidden>
+          <p class="empty-title">ไม่มีข้อมูลการเช็คชื่อในช่วงวันที่นี้</p>
+        </div>
+
+        <div id="reportWeeks"></div>
+
+        <div id="reportSummaryCard" class="card" hidden>
+          <h2 class="card-title">สรุปรวมทุกสัปดาห์</h2>
+          <div class="table-wrap">
+            <table id="reportSummaryTable">
+              <thead><tr id="reportSummaryHead"></tr></thead>
+              <tbody id="reportSummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
   </main>

@@ -611,3 +611,55 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   color: #fff;
   background: var(--red);
 }
+
+/* ---------------- รายงาน (หน้า 4) ---------------- */
+
+.quick-range-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.quick-range { padding: 7px 14px; font-size: 13px; }
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-week-block {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  padding: 20px 22px;
+  margin-bottom: 18px;
+}
+
+.report-week-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--gold);
+  margin: 0 0 14px;
+}
+
+.cell-yes {
+  color: #7fbf7f;
+  font-weight: 700;
+  background: rgba(70, 160, 70, 0.14);
+}
+
+.cell-no {
+  color: var(--red-bright);
+  font-weight: 700;
+  background: rgba(179, 35, 26, 0.14);
+}
+
+.cell-total {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+td.center, th.center { text-align: center; }
