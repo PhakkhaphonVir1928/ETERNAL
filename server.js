@@ -36,30 +36,53 @@ const pool = mysql.createPool({
 });
 
 // สร้างตารางอัตโนมัติถ้ายังไม่มี
+// แต่ละสเต็ปแยก try/catch กันเอง เพื่อไม่ให้สเต็ปหนึ่งพังแล้วลากสเต็ปอื่นตายไปด้วย
+// (เช่น ALTER TABLE ล้มเหลวไม่ควรทำให้ CREATE TABLE checkins ไม่ถูกรันตามไปด้วย)
 async function ensureSchema() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS members (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(100) NOT NULL,
-      \`rank\` VARCHAR(50) NOT NULL,
-      status VARCHAR(50) DEFAULT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  `);
-  // เผื่อฐานข้อมูลเดิมที่สร้างไว้ก่อนมีคอลัมน์ status ให้เติมให้อัตโนมัติ (MariaDB 10.0.2+ รองรับ IF NOT EXISTS)
-  await pool.query(`
-    ALTER TABLE members ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT NULL;
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS checkins (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      member_id INT NOT NULL,
-      checkin_date DATE NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_member_date (member_id, checkin_date),
-      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  `);
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS members (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        \`rank\` VARCHAR(50) NOT NULL,
+        status VARCHAR(50) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+  } catch (err) {
+    console.error('สร้างตาราง members ไม่สำเร็จ:', err.message);
+  }
+
+  // เผื่อฐานข้อมูลเดิมที่สร้างไว้ก่อนมีคอลัมน์ status ให้เติมให้อัตโนมัติ
+  // เช็คจาก information_schema ก่อน แทนการพึ่ง syntax "ADD COLUMN IF NOT EXISTS"
+  // เพราะบาง engine/เวอร์ชันของ MySQL ไม่รองรับ syntax นี้ (จะ error แบบเงียบๆ แล้วคอลัมน์ไม่ถูกเพิ่มจริง)
+  try {
+    const [cols] = await pool.query(`
+      SELECT COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'status'
+    `);
+    if (cols.length === 0) {
+      await pool.query(`ALTER TABLE members ADD COLUMN status VARCHAR(50) DEFAULT NULL;`);
+      console.log('เพิ่มคอลัมน์ status ในตาราง members สำเร็จ');
+    }
+  } catch (err) {
+    console.error('เพิ่มคอลัมน์ status ไม่สำเร็จ:', err.message);
+  }
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS checkins (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        member_id INT NOT NULL,
+        checkin_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_member_date (member_id, checkin_date),
+        FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+  } catch (err) {
+    console.error('สร้างตาราง checkins ไม่สำเร็จ:', err.message);
+  }
 }
 ensureSchema().catch((err) => {
   console.error('ไม่สามารถสร้างตารางฐานข้อมูลได้:', err.message);

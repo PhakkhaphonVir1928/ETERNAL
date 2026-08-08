@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS members (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ถ้ามีตาราง members อยู่ก่อนแล้วแบบไม่มีคอลัมน์ status ให้รันเพิ่มเอง:
+-- ALTER TABLE members ADD COLUMN status VARCHAR(50) DEFAULT NULL;
+
 CREATE TABLE IF NOT EXISTS checkins (
   id INT AUTO_INCREMENT PRIMARY KEY,
   member_id INT NOT NULL,
