@@ -42,25 +42,83 @@ async function loadMembers() {
 }
 
 function renderOverview() {
-  const list = document.getElementById('memberList');
   const empty = document.getElementById('overviewEmpty');
   const stat = document.getElementById('overviewStat');
+  const tableCard = document.getElementById('overviewTableCard');
 
   if (allMembers.length === 0) {
-    list.innerHTML = '';
     stat.innerHTML = '';
     empty.hidden = false;
+    tableCard.hidden = true;
     return;
   }
   empty.hidden = true;
+  tableCard.hidden = false;
   stat.innerHTML = `<span class="stat-pill">ทั้งหมด <b>${allMembers.length}</b> คน</span>`;
 
-  list.innerHTML = allMembers.map((m) => `
-    <span class="member-chip" data-rank="${escapeHtml(m.rank)}">
-      ${escapeHtml(m.name)}
-      <span class="rank-tag">${escapeHtml(m.rank)}</span>
-    </span>
-  `).join('');
+  loadOverviewReport();
+}
+
+// แสดงตารางเช็คชื่อสัปดาห์นี้ในหน้าภาพรวม (รูปแบบเดียวกับหน้า "รายงาน")
+async function loadOverviewReport() {
+  const titleEl = document.getElementById('overviewTableTitle');
+  const headEl = document.getElementById('overviewHead');
+  const bodyEl = document.getElementById('overviewBody');
+
+  function renderRosterOnly() {
+    titleEl.textContent = 'ทำเนียบสมาชิก';
+    headEl.innerHTML = '<th>รายชื่อสมาชิก</th><th>ตำแหน่ง</th>';
+    bodyEl.innerHTML = allMembers.map((m) => `
+      <tr>
+        <td>${escapeHtml(m.name)}</td>
+        <td>${escapeHtml(m.rank)}</td>
+      </tr>
+    `).join('');
+  }
+
+  const today = new Date();
+  const monday = mondayOf(today);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const start = toISODate(monday);
+  const end = toISODate(sunday);
+
+  try {
+    const res = await fetch(`/api/report?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'โหลดข้อมูลไม่สำเร็จ');
+
+    const week = data.weeks[0];
+    if (!week) {
+      renderRosterOnly();
+      return;
+    }
+
+    titleEl.textContent = `เช็คชื่อสัปดาห์นี้ (${week.weekStart} ถึง ${week.weekEnd})`;
+    headEl.innerHTML = `
+      <th>รายชื่อสมาชิก</th>
+      <th>ตำแหน่ง</th>
+      ${week.days.map((d) => `<th class="center">วัน${escapeHtml(d.dayName)}</th>`).join('')}
+      <th class="center">รวม</th>
+    `;
+    bodyEl.innerHTML = week.rows.map((r) => {
+      const dayCells = week.days.map((d) => {
+        const v = r.byDate[d.date];
+        return `<td class="center ${v === 1 ? 'cell-yes' : 'cell-no'}">${v}</td>`;
+      }).join('');
+      return `
+        <tr>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${escapeHtml(r.rank)}</td>
+          ${dayCells}
+          <td class="center cell-total">${r.total}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error(err);
+    renderRosterOnly();
+  }
 }
 
 // ---------------- gate (หน้า 2 และ 3 ใช้รหัสร่วมกัน) ----------------
