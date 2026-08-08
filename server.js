@@ -19,6 +19,9 @@ function rankIndex(r) {
   return i === -1 ? RANKS.length : i;
 }
 
+// ---- สถานะพิเศษที่ตั้งได้ (ตอนนี้มีแค่ "เข้ามาใหม่" อย่างเดียว ไม่ตั้งไว้ = null = ไม่แสดงอะไรในหน้าภาพรวม) ----
+const STATUSES = ['เข้ามาใหม่'];
+
 // ---- เชื่อมต่อฐานข้อมูล Aiven MariaDB ----
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -39,8 +42,13 @@ async function ensureSchema() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       \`rank\` VARCHAR(50) NOT NULL,
+      status VARCHAR(50) DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+  // เผื่อฐานข้อมูลเดิมที่สร้างไว้ก่อนมีคอลัมน์ status ให้เติมให้อัตโนมัติ (MariaDB 10.0.2+ รองรับ IF NOT EXISTS)
+  await pool.query(`
+    ALTER TABLE members ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT NULL;
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS checkins (
@@ -66,7 +74,7 @@ function sortMembers(rows) {
 // GET /api/members — รายชื่อสมาชิกทั้งหมด
 app.get('/api/members', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT id, name, `rank` FROM members');
+    const [rows] = await pool.query('SELECT id, name, `rank`, status FROM members');
     res.json(sortMembers(rows));
   } catch (err) {
     console.error(err);
@@ -135,6 +143,26 @@ app.delete('/api/members/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'ลบข้อมูลไม่สำเร็จ', detail: err.message });
+  }
+});
+
+// PATCH /api/members/:id/status — ตั้ง/เอาสถานะพิเศษออก (ตอนนี้มีแค่ "เข้ามาใหม่")
+// body: { status: "เข้ามาใหม่" } เพื่อตั้ง, หรือ { status: null } เพื่อเอาออก
+app.patch('/api/members/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (status !== null && !STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
+    }
+    const [result] = await pool.query('UPDATE members SET status = ? WHERE id = ?', [status, id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'ไม่พบสมาชิกที่ต้องการแก้ไข' });
+    }
+    res.json({ updated: true, status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'แก้ไขสถานะไม่สำเร็จ', detail: err.message });
   }
 });
 
@@ -234,7 +262,7 @@ function startOfWeekMonday(dateStr) {
 // รวมข้อมูลรายงานช่วง start..end (inclusive) แบ่งเป็นสัปดาห์ (จันทร์-อาทิตย์)
 // แสดงเฉพาะวันที่มีคนเช็คชื่ออย่างน้อย 1 คน (ตัดคอลัมน์วันที่ไม่มีกิจกรรมทิ้งไป เหมือนตารางต้นฉบับ)
 async function buildReport(start, end) {
-  const [members] = await pool.query('SELECT id, name, `rank` FROM members');
+  const [members] = await pool.query('SELECT id, name, `rank`, status FROM members');
   const sortedMembers = sortMembers(members);
 
   const [checkinRows] = await pool.query(
@@ -278,7 +306,7 @@ async function buildReport(start, end) {
           byDate[d.date] = val;
           total += val;
         });
-        return { id: m.id, name: m.name, rank: m.rank, byDate, total };
+        return { id: m.id, name: m.name, rank: m.rank, status: m.status, byDate, total };
       });
 
       return {

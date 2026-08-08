@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS members (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   `rank` VARCHAR(50) NOT NULL,
+  status VARCHAR(50) DEFAULT NULL, -- ตอนนี้ใช้แค่ 'เข้ามาใหม่' หรือ NULL (ไม่ตั้ง = ไม่แสดงอะไรในหน้าภาพรวม)
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

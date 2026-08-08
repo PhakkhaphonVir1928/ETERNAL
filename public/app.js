@@ -70,7 +70,7 @@ async function loadOverviewReport() {
     headEl.innerHTML = '<th>รายชื่อสมาชิก</th><th>ตำแหน่ง</th>';
     bodyEl.innerHTML = allMembers.map((m) => `
       <tr>
-        <td>${escapeHtml(m.name)}</td>
+        <td>${escapeHtml(m.name)} ${m.status ? `<span class="badge-new">${escapeHtml(m.status)}</span>` : ''}</td>
         <td>${escapeHtml(m.rank)}</td>
       </tr>
     `).join('');
@@ -108,7 +108,7 @@ async function loadOverviewReport() {
       }).join('');
       return `
         <tr>
-          <td>${escapeHtml(r.name)}</td>
+          <td>${escapeHtml(r.name)} ${r.status ? `<span class="badge-new">${escapeHtml(r.status)}</span>` : ''}</td>
           <td>${escapeHtml(r.rank)}</td>
           ${dayCells}
           <td class="center cell-total">${r.total}</td>
@@ -278,13 +278,18 @@ document.getElementById('addSubmit').addEventListener('click', async () => {
 function renderTable() {
   const tbody = document.getElementById('dataTableBody');
   if (allMembers.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--text-faint);">ยังไม่มีสมาชิกในระบบ</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-faint);">ยังไม่มีสมาชิกในระบบ</td></tr>`;
     return;
   }
   tbody.innerHTML = allMembers.map((m) => `
     <tr data-id="${m.id}">
       <td>${escapeHtml(m.rank)}</td>
       <td>${escapeHtml(m.name)}</td>
+      <td>
+        ${m.status
+          ? `<span class="badge-new">${escapeHtml(m.status)}</span> <button class="status-toggle btn btn-ghost" data-action="clear">เอาออก</button>`
+          : `<button class="status-toggle btn btn-ghost" data-action="set">ตั้งเป็นเข้ามาใหม่</button>`}
+      </td>
       <td>
         <div class="row-actions">
           <button class="edit">แก้ไข</button>
@@ -298,7 +303,29 @@ function renderTable() {
     const id = Number(tr.dataset.id);
     tr.querySelector('.edit').addEventListener('click', () => openEdit(id));
     tr.querySelector('.del').addEventListener('click', () => openDelete(id));
+    const toggleBtn = tr.querySelector('.status-toggle');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        const newStatus = toggleBtn.dataset.action === 'set' ? 'เข้ามาใหม่' : null;
+        setMemberStatus(id, newStatus);
+      });
+    }
   });
+}
+
+async function setMemberStatus(id, status) {
+  try {
+    const res = await fetch(`/api/members/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'แก้ไขสถานะไม่สำเร็จ');
+    await loadMembers();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 document.getElementById('refreshBtn').addEventListener('click', loadMembers);
