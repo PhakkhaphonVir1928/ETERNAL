@@ -1,0 +1,315 @@
+// app.js — สำนัก: ทำเนียบสมาชิก + เช็คชื่อรายวัน
+
+const RANKS = ['เจ้าสำนัก', 'รองเจ้าสำนัก', 'ผู้อาวุโส', 'เอลิต', 'สมาชิก'];
+const GATE_PASSWORD = 'admin123'; // ไม่ใช่ระบบล็อกอิน แค่ด่านกรอกรหัสผ่านฝั่ง client ตามที่ขอ
+
+let allMembers = [];
+let sessionUnlocked = false;
+let editingId = null;
+let deletingId = null;
+
+// ---------------- tabs ----------------
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach((t) => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+    document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
+  });
+});
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------------- members / overview ----------------
+async function loadMembers() {
+  try {
+    const res = await fetch('/api/members');
+    if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+    allMembers = await res.json();
+  } catch (err) {
+    allMembers = [];
+    console.error(err);
+  }
+  renderOverview();
+  renderTable();
+  document.getElementById('checkinTotal').textContent = allMembers.length;
+  if (sessionUnlocked) loadCheckins();
+}
+
+function renderOverview() {
+  const list = document.getElementById('memberList');
+  const empty = document.getElementById('overviewEmpty');
+  const stat = document.getElementById('overviewStat');
+
+  if (allMembers.length === 0) {
+    list.innerHTML = '';
+    stat.innerHTML = '';
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  stat.innerHTML = `<span class="stat-pill">ทั้งหมด <b>${allMembers.length}</b> คน</span>`;
+
+  list.innerHTML = allMembers.map((m) => `
+    <span class="member-chip" data-rank="${escapeHtml(m.rank)}">
+      ${escapeHtml(m.name)}
+      <span class="rank-tag">${escapeHtml(m.rank)}</span>
+    </span>
+  `).join('');
+}
+
+// ---------------- gate (หน้า 2 และ 3 ใช้รหัสร่วมกัน) ----------------
+function initRankSelects() {
+  ['addRank', 'editRank'].forEach((id) => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = RANKS.map((r) => `<option value="${r}">${r}</option>`).join('');
+  });
+}
+initRankSelects();
+
+document.querySelectorAll('.gate').forEach((gateEl) => {
+  const input = gateEl.querySelector('.gatePassword');
+  const err = gateEl.querySelector('.gateError');
+  const submitBtn = gateEl.querySelector('.gateSubmit');
+
+  function tryUnlock() {
+    if (input.value === GATE_PASSWORD) {
+      unlockAll();
+    } else {
+      err.hidden = false;
+      input.value = '';
+      input.focus();
+    }
+  }
+
+  submitBtn.addEventListener('click', tryUnlock);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') tryUnlock();
+  });
+});
+
+function unlockAll() {
+  sessionUnlocked = true;
+  document.querySelectorAll('.gate').forEach((g) => { g.hidden = true; });
+  document.getElementById('checkinContent').hidden = false;
+  document.getElementById('manageContent').hidden = false;
+
+  const checkinDate = document.getElementById('checkinDate');
+  if (!checkinDate.value) checkinDate.valueAsDate = new Date();
+  loadCheckins();
+}
+
+// ---------------- หน้า 2: เช็คชื่อ ----------------
+document.getElementById('checkinDate').addEventListener('change', loadCheckins);
+
+async function loadCheckins() {
+  const date = document.getElementById('checkinDate').value;
+  if (!date) return;
+  try {
+    const res = await fetch(`/api/checkins?date=${encodeURIComponent(date)}`);
+    if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+    const rows = await res.json();
+    renderCheckedList(rows);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderCheckedList(rows) {
+  const list = document.getElementById('checkedList');
+  const empty = document.getElementById('checkedEmpty');
+  document.getElementById('checkinCount').textContent = rows.length;
+  document.getElementById('checkinTotal').textContent = allMembers.length;
+
+  if (rows.length === 0) {
+    list.innerHTML = '';
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  list.innerHTML = rows.map((r) => `
+    <span class="checked-chip" data-id="${r.id}">
+      ${escapeHtml(r.name)} <span class="rank-tag">${escapeHtml(r.rank)}</span>
+      <button title="ยกเลิกเช็คชื่อ">✕</button>
+    </span>
+  `).join('');
+
+  list.querySelectorAll('.checked-chip').forEach((chip) => {
+    chip.querySelector('button').addEventListener('click', async () => {
+      try {
+        const res = await fetch(`/api/checkins/${chip.dataset.id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('ยกเลิกไม่สำเร็จ');
+        await loadCheckins();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+}
+
+document.getElementById('checkinSubmit').addEventListener('click', async () => {
+  const date = document.getElementById('checkinDate').value;
+  const namesRaw = document.getElementById('checkinNames').value;
+  const names = namesRaw.split('\n').map((n) => n.trim()).filter(Boolean);
+  const status = document.getElementById('checkinStatus');
+
+  if (!date || names.length === 0) {
+    status.textContent = 'กรุณาเลือกวันที่และกรอกรายชื่ออย่างน้อย 1 คน';
+    return;
+  }
+
+  status.textContent = 'กำลังเช็คชื่อ...';
+  try {
+    const res = await fetch('/api/checkins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, names }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'เช็คชื่อไม่สำเร็จ');
+    let msg = `เช็คแล้ว ${data.matched} คน`;
+    if (data.notFound && data.notFound.length > 0) {
+      msg += ` (ไม่พบในทำเนียบ ${data.notFound.length} คน: ${data.notFound.join(', ')})`;
+    }
+    status.textContent = msg;
+    document.getElementById('checkinNames').value = '';
+    await loadCheckins();
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+
+// ---------------- หน้า 3: จัดการสมาชิก — เพิ่มแบบกลุ่ม ----------------
+document.getElementById('addSubmit').addEventListener('click', async () => {
+  const rank = document.getElementById('addRank').value;
+  const namesRaw = document.getElementById('addNames').value;
+  const names = namesRaw.split('\n').map((n) => n.trim()).filter(Boolean);
+  const status = document.getElementById('addStatus');
+
+  if (names.length === 0) {
+    status.textContent = 'กรุณากรอกรายชื่ออย่างน้อย 1 คน';
+    return;
+  }
+
+  status.textContent = 'กำลังบันทึก...';
+  try {
+    const res = await fetch('/api/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rank, names }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+    status.textContent = `บันทึกแล้ว ${data.inserted} คน`;
+    document.getElementById('addNames').value = '';
+    await loadMembers();
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+
+// ---------------- ตารางสมาชิกทั้งหมด ----------------
+function renderTable() {
+  const tbody = document.getElementById('dataTableBody');
+  if (allMembers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--text-faint);">ยังไม่มีสมาชิกในระบบ</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allMembers.map((m) => `
+    <tr data-id="${m.id}">
+      <td>${escapeHtml(m.rank)}</td>
+      <td>${escapeHtml(m.name)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="edit">แก้ไข</button>
+          <button class="del">ลบ</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('tr').forEach((tr) => {
+    const id = Number(tr.dataset.id);
+    tr.querySelector('.edit').addEventListener('click', () => openEdit(id));
+    tr.querySelector('.del').addEventListener('click', () => openDelete(id));
+  });
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadMembers);
+
+// ---------------- edit modal ----------------
+function openEdit(id) {
+  const rec = allMembers.find((m) => m.id === id);
+  if (!rec) return;
+  editingId = id;
+  document.getElementById('editRank').value = rec.rank;
+  document.getElementById('editName').value = rec.name;
+  document.getElementById('editModal').hidden = false;
+}
+
+document.getElementById('editCancel').addEventListener('click', () => {
+  document.getElementById('editModal').hidden = true;
+  editingId = null;
+});
+
+document.getElementById('editSave').addEventListener('click', async () => {
+  if (editingId == null) return;
+  const rank = document.getElementById('editRank').value;
+  const name = document.getElementById('editName').value.trim();
+  if (!name) return;
+
+  try {
+    const res = await fetch(`/api/members/${editingId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, rank }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'แก้ไขไม่สำเร็จ');
+    }
+    document.getElementById('editModal').hidden = true;
+    editingId = null;
+    await loadMembers();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// ---------------- delete modal ----------------
+function openDelete(id) {
+  const rec = allMembers.find((m) => m.id === id);
+  if (!rec) return;
+  deletingId = id;
+  document.getElementById('deleteName').textContent = `${rec.name} (${rec.rank})`;
+  document.getElementById('deleteModal').hidden = false;
+}
+
+document.getElementById('deleteCancel').addEventListener('click', () => {
+  document.getElementById('deleteModal').hidden = true;
+  deletingId = null;
+});
+
+document.getElementById('deleteConfirm').addEventListener('click', async () => {
+  if (deletingId == null) return;
+  try {
+    const res = await fetch(`/api/members/${deletingId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'ลบไม่สำเร็จ');
+    }
+    document.getElementById('deleteModal').hidden = true;
+    deletingId = null;
+    await loadMembers();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// ---------------- init ----------------
+loadMembers();

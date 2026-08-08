@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>สำนัก — เช็คชื่อ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;700;900&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="seal-bg" aria-hidden="true"></div>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="seal-mark">印</div>
+      <div class="masthead-text">
+        <p class="eyebrow">บันทึกประจำสำนัก</p>
+        <h1>สำนัก</h1>
+        <p class="sub">เช็คชื่อ · จัดลำดับตำแหน่ง · เปิดให้ทุกคนดูได้</p>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="overview" role="tab" aria-selected="true">ภาพรวม</button>
+      <button class="tab" data-tab="checkin" role="tab" aria-selected="false">เช็คชื่อ</button>
+      <button class="tab" data-tab="manage" role="tab" aria-selected="false">จัดการสมาชิก</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ===================== หน้า 1: ภาพรวม ===================== -->
+    <section id="panel-overview" class="panel active">
+      <div class="controls-row">
+        <div class="stat-strip" id="overviewStat"></div>
+      </div>
+
+      <div id="overviewEmpty" class="empty-state" hidden>
+        <p class="empty-title">ยังไม่มีสมาชิกในระบบ</p>
+        <p class="empty-body">ไปที่แท็บ "จัดการสมาชิก" เพื่อเพิ่มรายชื่อ แล้วจะมาโผล่ที่นี่ทันที</p>
+      </div>
+
+      <div id="memberList" class="member-list"></div>
+    </section>
+
+    <!-- ===================== หน้า 2: เช็คชื่อ ===================== -->
+    <section id="panel-checkin" class="panel">
+
+      <div id="gateCheckin" class="gate">
+        <div class="gate-card">
+          <div class="seal-mark small">印</div>
+          <h2>ตราผ่านสำนัก</h2>
+          <p>ส่วนนี้ใช้เช็คชื่อสมาชิก กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
+          <input class="gatePassword" type="password" placeholder="รหัสผ่าน" autocomplete="off">
+          <button class="gateSubmit btn btn-primary">เข้าสู่ส่วนเช็คชื่อ</button>
+          <p class="gateError gate-error" hidden>รหัสผ่านไม่ถูกต้อง ลองอีกครั้ง</p>
+        </div>
+      </div>
+
+      <div id="checkinContent" class="manage-content" hidden>
+        <div class="card">
+          <div class="form-row">
+            <label>วันที่
+              <input id="checkinDate" type="date">
+            </label>
+          </div>
+          <div class="checkin-progress-row">
+            <span class="checkin-progress"><b id="checkinCount">0</b>/<span id="checkinTotal">0</span> คน</span>
+            <span class="checkin-progress-label">เช็คแล้ว</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">เช็คชื่อ</h2>
+          <p class="card-hint">พิมพ์หรือวางรายชื่อทีละบรรทัด ระบบจะจับคู่กับทำเนียบสมาชิกให้อัตโนมัติ</p>
+          <label class="block-label">รายชื่อที่มา (บรรทัดละ 1 คน)
+            <textarea id="checkinNames" rows="5" placeholder="ศิษย์ฟ้า&#10;ศิษย์ดิน&#10;ศิษย์น้ำ"></textarea>
+          </label>
+          <button id="checkinSubmit" class="btn btn-primary">เช็คชื่อ</button>
+          <span id="checkinStatus" class="inline-status"></span>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">รายชื่อที่เช็คแล้ววันนี้</h2>
+          <div id="checkedEmpty" class="empty-state" hidden>
+            <p class="empty-title">ยังไม่มีใครเช็คชื่อ</p>
+          </div>
+          <div id="checkedList" class="checked-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== หน้า 3: จัดการสมาชิก ===================== -->
+    <section id="panel-manage" class="panel">
+
+      <div id="gate" class="gate">
+        <div class="gate-card">
+          <div class="seal-mark small">印</div>
+          <h2>ตราผ่านสำนัก</h2>
+          <p>ส่วนนี้ใช้จัดการรายชื่อสมาชิกของสำนัก กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
+          <input class="gatePassword" type="password" placeholder="รหัสผ่าน" autocomplete="off">
+          <button class="gateSubmit btn btn-primary">เข้าสู่ส่วนจัดการ</button>
+          <p class="gateError gate-error" hidden>รหัสผ่านไม่ถูกต้อง ลองอีกครั้ง</p>
+        </div>
+      </div>
+
+      <div id="manageContent" class="manage-content" hidden>
+
+        <div class="card">
+          <h2 class="card-title">เพิ่มสมาชิกแบบกลุ่ม</h2>
+          <p class="card-hint">พิมพ์ชื่อทีละบรรทัด ระบบจะเพิ่มทุกคนภายใต้ตำแหน่งเดียวกัน แล้วไปโผล่ที่หน้าภาพรวมทันที</p>
+          <div class="form-row">
+            <label>ตำแหน่ง
+              <select id="addRank"></select>
+            </label>
+          </div>
+          <label class="block-label">รายชื่อ (บรรทัดละ 1 คน)
+            <textarea id="addNames" rows="5" placeholder="ศิษย์ฟ้า&#10;ศิษย์ดิน&#10;ศิษย์น้ำ"></textarea>
+          </label>
+          <button id="addSubmit" class="btn btn-primary">บันทึกทั้งหมด</button>
+          <span id="addStatus" class="inline-status"></span>
+        </div>
+
+        <div class="card">
+          <div class="card-title-row">
+            <h2 class="card-title">รายชื่อสมาชิกทั้งหมด</h2>
+            <button id="refreshBtn" class="btn btn-ghost">รีเฟรช</button>
+          </div>
+          <div class="table-wrap">
+            <table id="dataTable">
+              <thead>
+                <tr>
+                  <th>ตำแหน่ง</th>
+                  <th>ชื่อ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="dataTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- edit modal -->
+  <div id="editModal" class="modal-backdrop" hidden>
+    <div class="modal-card">
+      <h2>แก้ไขข้อมูล</h2>
+      <label>ตำแหน่ง
+        <select id="editRank"></select>
+      </label>
+      <label>ชื่อ
+        <input id="editName" type="text">
+      </label>
+      <div class="modal-actions">
+        <button id="editCancel" class="btn btn-ghost">ยกเลิก</button>
+        <button id="editSave" class="btn btn-primary">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- delete confirm -->
+  <div id="deleteModal" class="modal-backdrop" hidden>
+    <div class="modal-card small">
+      <h2>ยืนยันการลบ</h2>
+      <p id="deleteName" class="delete-name"></p>
+      <div class="modal-actions">
+        <button id="deleteCancel" class="btn btn-ghost">ยกเลิก</button>
+        <button id="deleteConfirm" class="btn btn-danger">ลบข้อมูล</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
